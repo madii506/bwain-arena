@@ -30,12 +30,19 @@ async function init() {
   await q(`create table if not exists bw_equity (bwain_id int not null, round int not null, equity double precision, primary key (bwain_id, round))`);
   await q(`create table if not exists bw_meta (k text primary key, v text, n bigint)`);
   await q(`create table if not exists bw_rl (k text primary key, n int not null default 0, until bigint not null)`);
-  const c = await q(`select count(*)::int as n from bw_bwains`);
-  if (!c[0].n) {
-    for (let i = 0; i < HOUSE.length; i++) {
-      const [name, style, risk, persona] = HOUSE[i];
-      await q(`insert into bw_bwains (name, kind, style, risk, persona, look) values ($1, 'house', $2, $3, $4, $5)`, [name, style, risk, persona, 11 + i * 37]);
-    }
+  // one-time clean start: the first cold starts raced and seeded the house twice (schema v2)
+  const mig = await q(`insert into bw_meta (k, v, n) values ('schema', '', 2) on conflict (k) do update set n = 2 where bw_meta.n < 2 returning n`);
+  if (mig.length) {
+    await q(`truncate bw_trades, bw_pos, bw_equity`);
+    await q(`delete from bw_bwains`);
+    await q(`alter sequence bw_bwains_id_seq restart with 1`);
+    await q(`delete from bw_meta where k in ('round', 'round_at')`);
+  }
+  await q(`create unique index if not exists bw_bwains_name_uq on bw_bwains (name)`);
+  const c = await q(`select count(*)::int as n from bw_bwains where kind = 'house'`);
+  if (c[0].n < HOUSE.length) {
+    await q(`insert into bw_bwains (name, kind, style, risk, persona, look) select n, 'house', s, r, p, l from unnest($1::text[], $2::text[], $3::int[], $4::text[], $5::int[]) as x(n, s, r, p, l) order by l on conflict (name) do nothing`,
+      [HOUSE.map((h) => h[0]), HOUSE.map((h) => h[1]), HOUSE.map((h) => h[2]), HOUSE.map((h) => h[3]), HOUSE.map((h, i) => 11 + i * 37)]);
   }
   ready = true;
 }

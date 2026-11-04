@@ -15,10 +15,13 @@ module.exports = async (req, res) => {
     const pa = ps.find((p) => p.id === a), pb = ps.find((p) => p.id === b);
     const token = req.headers['x-vercel-oidc-token'] || process.env.VERCEL_OIDC_TOKEN || '';
     const c = await merge(pa, pb, token);
-    let name = c.name; const taken = await q(`select count(*)::int as n from bw_bwains where name = $1`, [name]);
-    if (taken[0].n) name = (name + ' ' + (taken[0].n + 1)).slice(0, 24);
-    const look = Math.floor(Math.random() * 1e6);
-    const r = await q(`insert into bw_bwains (name, kind, style, risk, persona, parents, gen, look) values ($1, 'child', $2, $3, $4, $5, $6, $7) returning id`, [name, c.style, c.risk, c.persona, [a, b], Math.max(pa.gen, pb.gen) + 1, look]);
+    const look = Math.floor(Math.random() * 1e6), ins = `insert into bw_bwains (name, kind, style, risk, persona, parents, gen, look) values ($1, 'child', $2, $3, $4, $5, $6, $7) on conflict (name) do nothing returning id`;
+    let name = c.name, r = [];
+    for (let k = 0; k < 4 && !r.length; k++) {
+      if (k) name = (c.name.slice(0, 19) + ' ' + (100 + Math.floor(Math.random() * 900)));
+      r = await q(ins, [name, c.style, c.risk, c.persona, [a, b], Math.max(pa.gen, pb.gen) + 1, look]);
+    }
+    if (!r.length) return res.status(409).json({ error: 'Name clash. Try again.' });
     const rd = await q(`select n from bw_meta where k = 'round'`);
     if (rd.length) await q(`insert into bw_equity (bwain_id, round, equity) values ($1, $2, 1000) on conflict do nothing`, [r[0].id, Number(rd[0].n)]);
     res.json({ id: r[0].id, name, style: c.style, risk: c.risk, persona: c.persona, look });
