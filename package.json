@@ -1,0 +1,7 @@
+{
+  "name": "bwain",
+  "private": true,
+  "dependencies": {
+    "@neondatabase/serverless": "0.10.4"
+  }
+}
