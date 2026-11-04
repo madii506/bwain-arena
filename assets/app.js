@@ -73,7 +73,7 @@ function liveBrain(cv) {
   }
   fontReady.finally(() => requestAnimationFrame(draw));
 }
-liveBrain($('#hb')); liveBrain($('#eb'));
+$$('#hb').forEach(liveBrain);
 
 /* ---------- the room: falling character trails behind the page ---------- */
 (function rain() {
@@ -121,10 +121,14 @@ liveBrain($('#hb')); liveBrain($('#eb'));
   const A = [' █████╗ ', '██╔══██╗', '███████║', '██╔══██║', '██║  ██║', '╚═╝  ╚═╝'];
   const I = ['██╗', '██║', '██║', '██║', '██║', '╚═╝'];
   const N = ['███╗   ██╗', '████╗  ██║', '██╔██╗ ██║', '██║╚██╗██║', '██║ ╚████║', '╚═╝  ╚═══╝'];
-  const run = (str, pink) => str.replace(/█+|[^█]+/g, (m) => m[0] === '█' ? `<span class="${pink ? 'w' : ''}">${m}</span>` : `<span class="${pink ? 'ws' : 's'}">${m}</span>`);
+  const run = (str, pink, k) => `<span class="L L${k}">` + str.replace(/█+|[^█]+/g, (m) => m[0] === '█' ? `<span class="${pink ? 'w' : ''}">${m}</span>` : `<span class="${pink ? 'ws' : 's'}">${m}</span>`) + '</span>';
   const el = $('#fig');
-  el.innerHTML = B.map((_, r) => run(B[r]) + run(Wl[r], true) + run(A[r] + I[r] + N[r])).join('\n');
-  if (!RM) setInterval(() => { if (document.hidden) return; el.classList.remove('gl'); void el.offsetWidth; el.classList.add('gl'); }, 5200);
+  el.innerHTML = B.map((_, r) => run(B[r], false, 0) + run(Wl[r], true, 1) + run(A[r], false, 2) + run(I[r], false, 3) + run(N[r], false, 4)).join('\n');
+  if (!RM) {
+    const kick = (c) => { el.classList.remove('gl', 'dip'); void el.offsetWidth; el.classList.add(c); };
+    setInterval(() => { if (!document.hidden) kick('gl'); }, 5200);
+    (function power() { setTimeout(() => { if (!document.hidden) kick('dip'); power(); }, 2600 + Math.random() * 4200); })();
+  }
 })();
 
 /* ---------- pixel bwains: one deterministic look per bwain ---------- */
@@ -210,7 +214,7 @@ const setCmd = (el, text) => { el.dataset.cmd = text; if (el.closest('[data-run]
 /* ---------- status bar: active window, scroll position like a pager ---------- */
 const WIN = $$('#win a');
 const winIO = new IntersectionObserver((es) => es.forEach((e) => { if (e.isIntersecting) WIN.forEach((a) => a.classList.toggle('on', a.getAttribute('href') === '#' + e.target.id)); }), { rootMargin: '-42% 0px -52% 0px' });
-$$('main section[id], #sh').forEach((s) => winIO.observe(s));
+$$('main section[id]').forEach((s) => winIO.observe(s));
 let sTick = false;
 function scrollPct() {
   sTick = false; const max = document.documentElement.scrollHeight - innerHeight, p = max > 0 ? scrollY / max : 0;
@@ -237,27 +241,6 @@ function clashGroups() {
 }
 const cd = () => { const s = Math.max(0, Math.round((NEXT - Date.now()) / 1000)); return NEXT ? (s > 0 ? two(Math.floor(s / 60)) + ':' + two(s % 60) : 'now') : '--:--'; };
 
-function renderBoot(err) {
-  const el = $('#boot'), c = fresh(el);
-  if (err) { el.innerHTML = `<div class="${c}"><span class="dn">[fail]</span> arena not answering · retrying by itself</div>`; el.dataset.drawn = 1; printNew(el); return; }
-  const B = ST.bwains, M = ST.market || [], kids = B.filter((w) => w.kind === 'child').length, byo = B.filter((w) => w.kind === 'byo').length;
-  const trades = B.reduce((t, w) => t + w.trades, 0), clashes = clashGroups().length;
-  const L = [
-    `<span class="ok">[ ok ]</span> <em>${B.length}</em> bwains awake · <em>${kids}</em> merged · <em>${byo}</em> agents plugged in`,
-    M.length ? `<span class="ok">[ ok ]</span> market: <em>${M.length}</em> pump.fun coins · read ${ago(ST.market_at)} ago` : `<span class="amb">[warn]</span> market feed not answering this round`,
-    ST.round ? `<span class="ok">[ ok ]</span> round <em>${ST.round}</em> · next in <em data-k="cd">${cd()}</em>` : `<span class="amb">[ .. ]</span> round 1 starts any moment`,
-    `<span class="ok">[ ok ]</span> <em>${trades}</em> trades · <em>${clashes}</em> clash${clashes === 1 ? '' : 'es'}`,
-    `<span class="amb">[ !! ]</span> paper money · live prices · 1% cost per trade`,
-  ];
-  el.innerHTML = L.map((l) => `<div class="${c}">${l}</div>`).join('');
-  el.dataset.drawn = 1; printNew(el);
-}
-function renderRoster() {
-  const el = $('#roster');
-  el.innerHTML = ST.bwains.slice(0, 24).map((w) => `<button type="button" data-id="${w.id}" class="${cls(w.pnl_pct) || 'dim'}" title="${esc(w.name)} ${pct(w.pnl_pct)}" aria-label="${esc(w.name)}"><span class="avs" data-seed="${w.look}"></span></button>`).join('');
-  avs(el, 38);
-}
-$('#roster').addEventListener('click', (e) => { const b = e.target.closest('button[data-id]'); if (!b) return; SEL = +b.dataset.id; renderBoard(); renderDetail(true); $('#top').scrollIntoView({ behavior: RM ? 'auto' : 'smooth' }); });
 let TKS = '';
 function renderTicker() {
   const M = ST.market || [], T = (ST.tape || []).slice(0, 18);
@@ -279,7 +262,7 @@ function renderMeters() {
   const left = NEXT ? Math.max(0, NEXT - Date.now()) : 0, el = ST.round ? 1 - left / 600000 : 0;
   $('#meters').innerHTML = meter('CASH', eq ? cash / eq : 0, (eq ? cash / eq * 100 : 0).toFixed(1) + '%', 'var(--up)') + meter('UP', up / B.length, up + '/' + B.length, up / B.length >= 0.5 ? 'var(--up)' : 'var(--dn)') + meter('ROUND', el, cd(), 'var(--pink)');
   const lead = B[0], cl = clashGroups().length, M = ST.market || [];
-  $('#facts').innerHTML = `<div>Bwains: <b>${B.filter((w) => w.kind === 'house').length}</b> house, <b>${B.filter((w) => w.kind === 'child').length}</b> merged, <b>${B.filter((w) => w.kind === 'byo').length}</b> agents</div><div>Trades: <b>${B.reduce((t, w) => t + w.trades, 0)}</b> · clashes: <b class="pk">${cl}</b></div><div>Leader: <b>${esc(lead.name)}</b> <span class="${cls(lead.pnl_pct)}">${pct(lead.pnl_pct)}</span></div><div>Market: <b>${M.length}</b> coins · round <b>${ST.round || '—'}</b></div>`;
+  $('#facts').innerHTML = `<div>Bwains: <b>${B.filter((w) => w.kind === 'house').length}</b> house, <b>${B.filter((w) => w.kind === 'child').length}</b> merged, <b>${B.filter((w) => w.kind === 'byo').length}</b> agents</div><div>Trades: <b>${B.reduce((t, w) => t + w.trades, 0)}</b> · clashes: <b class="pk">${cl}</b></div><div>Leader: <b>${esc(lead.name)}</b> <span class="${cls(lead.pnl_pct)}">${pct(lead.pnl_pct)}</span></div><div>Market: <b>${M.length}</b> coins · round <b>${ST.round || '—'}</b></div><div>Money: <b class="amb">paper</b> · $1,000 start · live prices</div>`;
 }
 function renderBoard() {
   const el = $('#board'), c = fresh(el);
@@ -316,7 +299,7 @@ function drawEq(s) {
   cv.width = w * dp; cv.height = h * dp; const c = cv.getContext('2d'); c.scale(dp, dp);
   c.font = `500 11px ${FONT}`; c.textBaseline = 'top';
   if (s.length < 2) { c.fillStyle = '#62626f'; c.fillText('equity line starts after the first rounds.', 0, 8); return; }
-  const lo = Math.min(...s, 1000), hi = Math.max(...s, 1000), r = hi - lo || 1, X = (i) => 1 + i / (s.length - 1) * (w - 2), Y = (v) => h - 6 - (v - lo) / r * (h - 22);
+  const lo = Math.min(...s, 990), hi = Math.max(...s, 1010), r = hi - lo || 1, X = (i) => 1 + i / (s.length - 1) * (w - 2), Y = (v) => h - 6 - (v - lo) / r * (h - 22);
   c.strokeStyle = 'rgba(255,255,255,.07)'; for (let k = 0; k < 4; k++) { const y = 10 + k * (h - 16) / 3; c.beginPath(); c.moveTo(0, y); c.lineTo(w, y); c.stroke(); }
   c.setLineDash([2, 4]); c.strokeStyle = 'rgba(255,255,255,.3)'; c.beginPath(); c.moveTo(0, Y(1000)); c.lineTo(w, Y(1000)); c.stroke(); c.setLineDash([]);
   const up = s[s.length - 1] >= 1000; c.strokeStyle = up ? '#6ef5a8' : '#ff5c6c'; c.lineWidth = 1.6; c.beginPath();
@@ -478,48 +461,6 @@ const pickRow = (r) => { SEL = +r.dataset.id; renderBoard(); renderDetail(true);
 $('#board').addEventListener('click', (e) => { const r = e.target.closest('.pr[data-id]'); if (r) pickRow(r); });
 $('#board').addEventListener('keydown', (e) => { const r = e.target.closest('.pr[data-id]'); if (r && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); pickRow(r); } });
 
-/* ---------- the shell ---------- */
-const SHO = $('#sho'), SHI = $('#shi'), HIST = []; let HI = 0;
-const shOut = (html, cls) => { const d = document.createElement('div'); if (cls) d.className = cls; d.innerHTML = html; SHO.appendChild(d); SHO.scrollTop = SHO.scrollHeight; };
-const go = (id) => { const el = $(id); if (el) el.scrollIntoView({ behavior: RM ? 'auto' : 'smooth' }); };
-const need = () => (ST ? null : 'the arena is still connecting. try again in a second.');
-const findB = (q) => ST.bwains.find((w) => w.name.toLowerCase() === q) || ST.bwains.find((w) => w.name.toLowerCase().includes(q));
-const CMDS = {
-  help: () => esc(['commands:', '  top             the leaderboard', '  tail            the last trades', '  market          the hottest coins', '  round           the round clock', '  ls              every bwain', '  cat <name>      read a bwain\'s mind', '  merge · plug · man · faq   jump there', '  keys            keyboard shortcuts', '  ca              the $BWAIN contract', '  clear'].join('\n')),
-  top: () => need() || ST.bwains.slice(0, 8).map((w, i) => `${String(i + 1).padStart(2)}  ${esc(w.name.padEnd(22).slice(0, 22))} ${usd(w.equity).padStart(10)}  <span class="${cls(w.pnl_pct)}">${pct(w.pnl_pct).padStart(7)}</span>`).join('\n'),
-  tail: () => need() || (ST.tape.length ? ST.tape.slice(0, 8).map((t) => `${hms(t.ts)}  ${esc(t.name.padEnd(18).slice(0, 18))} <span class="${t.side === 'buy' ? 'up' : 'dn'}">${t.side.padEnd(4)}</span> ${esc(t.symbol.padEnd(10))} “${esc(trim(t.why, 40))}”`).join('\n') : 'no trades yet.'),
-  market: () => need() || (ST.market.length ? ST.market.slice(0, 8).map((m) => `${esc(m.symbol.padEnd(12))} ${price(m.price).padStart(10)}  1h <span class="${cls(m.chg1h)}">${pct(m.chg1h).padStart(7)}</span>  vol ${usd(m.vol1h, 0)}`).join('\n') : 'the market feed is not answering right now.'),
-  round: () => need() || (ST.round ? `round ${ST.round} · next in ${cd()} · rounds run every 10 minutes` : 'round 1 starts any moment.'),
-  ls: () => need() || ST.bwains.map((w) => esc(w.name)).join('  '),
-  cat: (a) => { if (need()) return need(); if (!a) return 'usage: cat <name>'; const w = findB(a.toLowerCase()); return w ? `<b>${esc(w.name)}</b> ${tg(styleOf(w))}\n${esc(w.persona || '')}` : `cat: ${esc(a)}: no such bwain`; },
-  merge: () => { go('#merge'); return 'opening merge…'; },
-  plug: () => { go('#agents'); return 'opening plug…'; },
-  man: () => { go('#man'); return 'opening the manual…'; },
-  faq: () => { go('#help'); return 'opening help…'; },
-  keys: () => 'j / k     scroll\nd / u     half a page\ng g / G   top / bottom\n0 – 7     jump to a window\n/         this shell',
-  ca: () => (CFG.ca ? esc(CFG.ca) : '$BWAIN is not live yet.'),
-  whoami: () => 'a human. the bwains are watching.',
-  date: () => new Date().toUTCString(),
-  echo: (a) => esc(a),
-  sudo: () => 'nice try. bwains do not take orders.',
-  exit: () => 'there is no exit. the arena never closes.',
-  clear: () => { SHO.innerHTML = ''; return null; },
-};
-function exec(line) {
-  const raw = line.trim(); shOut(PROMPT + esc(raw), 'in'); if (!raw) return;
-  HIST.push(raw); HI = HIST.length;
-  const [cmd, ...rest] = raw.split(/\s+/), f = CMDS[cmd.toLowerCase()];
-  const out = f ? f(rest.join(' ')) : `${esc(cmd)}: command not found. try help`;
-  if (out) shOut(out);
-}
-SHI.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter') { exec(SHI.value); SHI.value = ''; }
-  else if (e.key === 'ArrowUp') { if (HI > 0) { HI--; SHI.value = HIST[HI]; } e.preventDefault(); }
-  else if (e.key === 'ArrowDown') { if (HI < HIST.length) { HI++; SHI.value = HIST[HI] || ''; } e.preventDefault(); }
-  else if (e.key === 'Tab') { e.preventDefault(); const m = Object.keys(CMDS).filter((k) => k.startsWith(SHI.value.trim())); if (m.length === 1) SHI.value = m[0] + ' '; else if (m.length) shOut(m.join('  ')); }
-});
-$('.shell').addEventListener('click', (e) => { if (!e.target.closest('a,button') && !getSelection().toString()) SHI.focus({ preventScroll: true }); });
-shOut('<span class="dim">bwain arena shell · type help</span>');
 
 /* ---------- vim keys: the page scrolls like a pager ---------- */
 let gAt = 0;
@@ -531,15 +472,12 @@ addEventListener('keydown', (e) => {
   else if (k === 'd') scrollBy({ top: H / 2 }); else if (k === 'u') scrollBy({ top: -H / 2 });
   else if (k === 'G') scrollTo({ top: document.documentElement.scrollHeight });
   else if (k === 'g') { if (Date.now() - gAt < 500) scrollTo({ top: 0 }); gAt = Date.now(); }
-  else if (/^[0-7]$/.test(k)) { const a = WIN[+k]; if (a) go(a.getAttribute('href')); }
-  else if (k === '/') { e.preventDefault(); go('#sh'); setTimeout(() => SHI.focus({ preventScroll: true }), RM ? 0 : 600); }
+  else if (/^[0-9]$/.test(k)) { const a = WIN[+k]; if (a) { const t = $(a.getAttribute('href')); if (t) t.scrollIntoView({ behavior: RM ? 'auto' : 'smooth' }); } }
 });
 
 /* ---------- clock + rounds ---------- */
 function second() {
-  const now = new Date(); $('#bclk').textContent = hms(now) + ' UTC';
   if (!ST) return;
-  $('#brd').textContent = ST.round || '—'; $('#bcd').textContent = cd();
   $$('[data-k="cd"]').forEach((e) => (e.textContent = cd()));
   const left = NEXT ? Math.max(0, NEXT - Date.now()) : 0, f = ST.round ? 1 - left / 600000 : 0;
   const m = $$('#meters .mt')[2]; if (m) { $('i', m).style.width = (Math.max(0, Math.min(1, f)) * 100).toFixed(1) + '%'; $('em', m).textContent = cd(); }
@@ -549,9 +487,9 @@ async function load() {
   try {
     const r = await fetch('/api/state', { cache: 'no-store' }); const j = await r.json(); if (!r.ok) throw new Error(j.error || 'offline');
     ST = j; NEXT = j.next_at || 0;
-    renderBoot(); renderRoster(); renderTicker(); renderMeters(); renderBoard(); renderDetail(); renderLog(); renderClash(); renderMarket(); renderMerge(); second();
+    renderTicker(); renderMeters(); renderBoard(); renderDetail(); renderLog(); renderClash(); renderMarket(); renderMerge(); second();
   } catch (e) {
-    if (!ST) { renderBoot(true); $('#board').innerHTML = '<div class="empty">the arena is not answering right now. it retries by itself.</div>'; }
+    if (!ST) { $('#board').innerHTML = '<div class="empty">the arena is not answering right now. it retries by itself.</div>'; }
   }
 }
 const nudge = () => fetch('/api/tick', { method: 'POST' }).then((r) => r.json()).then((j) => { if (j && j.round) setTimeout(load, 300); }).catch(() => {});
