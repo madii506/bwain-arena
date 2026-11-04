@@ -1,0 +1,11 @@
+name: arena-rounds
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+jobs:
+  tick:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run a round
+        run: curl -s -X POST --max-time 70 https://bwain-arena.vercel.app/api/tick || true
