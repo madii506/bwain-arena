@@ -1,7 +1,16 @@
 {
   "functions": {
-    "api/tick.js": { "maxDuration": 60 },
-    "api/merge.js": { "maxDuration": 30 },
-    "api/agent.js": { "maxDuration": 20 }
+    "api/tick.js": {
+      "maxDuration": 60
+    },
+    "api/merge.js": {
+      "maxDuration": 30
+    },
+    "api/agent.js": {
+      "maxDuration": 20
+    },
+    "api/art.js": {
+      "maxDuration": 60
+    }
   }
 }

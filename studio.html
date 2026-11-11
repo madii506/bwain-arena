@@ -1,0 +1,9 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>studio</title>
+<style>body{margin:0;background:#111;color:#ccc;font:13px ui-monospace,monospace}.g{display:flex;flex-wrap:wrap;gap:10px;padding:10px}.c{width:var(--s)}.c img{width:100%;display:block;background:#222;min-height:60px}.c b{display:block;padding:0 0 4px}</style></head>
+<body><div class="g" id="g"></div>
+<script>
+const u = new URLSearchParams(location.search), ids = (u.get('ids') || '').split(',').filter(Boolean);
+document.documentElement.style.setProperty('--s', (u.get('s') || '360') + 'px');
+document.getElementById('g').innerHTML = ids.map((id) => `<div class="c"><b>${id.replace(/[<>&"]/g, '')}</b><img src="/api/art?id=${encodeURIComponent(id)}" alt=""></div>`).join('');
+</script></body></html>
